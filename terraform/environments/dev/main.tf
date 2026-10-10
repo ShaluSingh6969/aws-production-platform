@@ -257,6 +257,10 @@ resource "aws_launch_template" "app" {
     aws_security_group.app.id
   ]
 
+  iam_instance_profile {
+    name = aws_iam_instance_profile.app.name
+  }
+
   user_data = base64encode(<<-EOF
     #!/bin/bash
     dnf install -y nginx
@@ -350,3 +354,35 @@ resource "aws_vpc_security_group_egress_rule" "app_outbound" {
 
   description = "Allow outbound traffic from application instances"
 }
+
+resource "aws_iam_role" "app" {
+  name = "${var.environment}-app-ec2-role"
+
+  assume_role_policy = jsonencode({
+    Version = "2012-10-17"
+
+    Statement = [
+      {
+        Effect = "Allow"
+
+        Principal = {
+          Service = "ec2.amazonaws.com"
+        }
+
+        Action = "sts:AssumeRole"
+      }
+    ]
+  })
+}
+
+resource "aws_iam_role_policy_attachment" "ssm" {
+  role       = aws_iam_role.app.name
+  policy_arn = "arn:aws:iam::aws:policy/AmazonSSMManagedInstanceCore"
+}
+
+resource "aws_iam_instance_profile" "app" {
+  name = "${var.environment}-app-instance-profile"
+  role = aws_iam_role.app.name
+}
+
+
